@@ -1,11 +1,13 @@
 # efs2tar
 
-`efs2tar` is a tool that converts SGI EFS-formatted filesystem images (ie, the result of `dd`-ing a whole device in to a file) in to tarballs. It was based entirely on NetBSD's `sys/fs/efs` ([source](http://cvsweb.netbsd.org/bsdweb.cgi/src/sys/fs/efs/?only_with_tag=MAIN)).
+This is a fork of https://github.com/sophaskins/efs2tar.  `efs2tar` is a tool that converts SGI EFS-formatted filesystem images into tarballs. It was based entirely on NetBSD's `sys/fs/efs` ([source](http://cvsweb.netbsd.org/bsdweb.cgi/src/sys/fs/efs/?only_with_tag=MAIN)).
+
+The goal of this fork is to streamline the command line, in particular to auto generate output file names so that it can be run batched.  For example, `find . -name "*.iso" -print -exec efs2tar {} ;\`.  The auto-generated tarball name is generated simply by replacing the source file's extension with `.tar`. 
 
 ## Example usage
 
 ```
-$ go install github.com/sophaskins/efs2tar
+$ go install github.com/sgi-demos/efs2tar
 $ efs2tar -in ~/my-sgi-disc.iso -out ~/my-sgi-disc.tar
 ```
 

@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/sophaskins/efs2tar/efs"
-	"github.com/sophaskins/efs2tar/sgi"
+	"github.com/sgi-demos/efs2tar/efs"
+	"github.com/sgi-demos/efs2tar/sgi"
 )
 
 func main() {
