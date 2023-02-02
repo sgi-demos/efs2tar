@@ -3,8 +3,10 @@ package main
 import (
 	"archive/tar"
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/sgi-demos/efs2tar/efs"
 	"github.com/sgi-demos/efs2tar/sgi"
@@ -14,6 +16,21 @@ func main() {
 	inputPath := flag.String("in", "", "the file to be read as an efs filesystem")
 	outputPath := flag.String("out", "", "the file to written to as a tar file")
 	flag.Parse()
+
+	var outFile string
+	if len(*inputPath) > 0 && len(*outputPath) == 0 {
+		inFile := *inputPath
+		extPos := strings.LastIndex(inFile, ".")
+		if extPos > 0 {
+			outFile = inFile[:extPos] + ".tar"
+		} else {
+			outFile = inFile + ".tar"
+		}
+		outputPath = &outFile
+	}
+
+	fmt.Println("in =", *inputPath, "\nout =", *outputPath)
+
 	file, err := os.Open(*inputPath)
 	if err != nil {
 		log.Fatal(err)
