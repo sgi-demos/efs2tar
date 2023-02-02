@@ -20,4 +20,4 @@ The Internet Archive has [several discs](https://archive.org/search.php?query=sg
 * minimal error handling
 * does not verify magic numbers
 * preserving the original file permissions
-* I've only tested this on like, one CD
+
