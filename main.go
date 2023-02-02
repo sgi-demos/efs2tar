@@ -2,8 +2,8 @@ package main
 
 import (
 	"archive/tar"
+	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -16,6 +16,9 @@ func main() {
 	inputPath := flag.String("in", "", "the file to be read as an efs filesystem")
 	outputPath := flag.String("out", "", "the file to written to as a tar file")
 	flag.Parse()
+	if len(*inputPath) == 0 && len(*outputPath) == 0 {
+		log.Fatal(errors.New("ERROR: need at least an input filename"))
+	}
 
 	var outFile string
 	if len(*inputPath) > 0 && len(*outputPath) == 0 {
@@ -29,7 +32,11 @@ func main() {
 		outputPath = &outFile
 	}
 
-	fmt.Println("in =", *inputPath, "\nout =", *outputPath)
+	//fmt.Println("in =", *inputPath, "\nout =", *outputPath)
+
+	if _, err := os.Stat(*outputPath); !os.IsNotExist(err) {
+		log.Fatal(errors.New("ERROR: output file already exists: " + *outputPath))
+	}
 
 	file, err := os.Open(*inputPath)
 	if err != nil {
