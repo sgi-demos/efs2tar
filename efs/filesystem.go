@@ -136,13 +136,19 @@ func (fs *Filesystem) initSuperBlock() {
 // block offset)
 func (fs *Filesystem) inodeForIndex(inodeIndex int32) Inode {
 	inodeBlocksPerCG := int32(fs.sb.CGInodeSize)
-	inodeCGIndex := inodeIndex / (inodeBlocksPerCG * maxInodesPerBlock)
-	inodeBBinCG := inodeIndex % (inodeBlocksPerCG * maxInodesPerBlock) / maxInodesPerBlock
-	bbIndex := fs.sb.FirstCG + inodeCGIndex*fs.sb.CGSize + inodeBBinCG
-	bb := fs.blockAt(bbIndex)
+	if inodeBlocksPerCG > 0 {
+		inodeCGIndex := inodeIndex / (inodeBlocksPerCG * maxInodesPerBlock)
+		inodeBBinCG := inodeIndex % (inodeBlocksPerCG * maxInodesPerBlock) / maxInodesPerBlock
+		bbIndex := fs.sb.FirstCG + inodeCGIndex*fs.sb.CGSize + inodeBBinCG
+		bb := fs.blockAt(bbIndex)
 
-	offsetInBB := inodeIndex & (maxInodesPerBlock - 1)
-	return bb.ToInodes()[offsetInBB]
+		offsetInBB := inodeIndex & (maxInodesPerBlock - 1)
+		return bb.ToInodes()[offsetInBB]
+	} else {
+		// not a valid EFS
+		var nilInode Inode
+		return nilInode
+	}
 }
 
 func (fs *Filesystem) RootInode() Inode {

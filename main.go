@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+	// get efs and tar file names
 	inputPath := flag.String("in", "", "the file to be read as an efs filesystem")
 	outputPath := flag.String("out", "", "the file to written to as a tar file")
 	flag.Parse()
@@ -32,12 +33,11 @@ func main() {
 		outputPath = &outFile
 	}
 
-	//fmt.Println("in =", *inputPath, "\nout =", *outputPath)
-
 	if _, err := os.Stat(*outputPath); !os.IsNotExist(err) {
 		log.Fatal(errors.New("ERROR: output file already exists: " + *outputPath))
 	}
 
+	// read efs file
 	file, err := os.Open(*inputPath)
 	if err != nil {
 		log.Fatal(err)
@@ -49,16 +49,21 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// ensure efs file is valid
+	vh := sgi.NewVolumeHeader(b)
+	p := vh.Partitions[7]
+	fs := efs.NewFilesystem(file, p.Blocks, p.First)
+	rootNode := fs.RootInode()
+	if rootNode.Size == 0 {
+		log.Fatal(errors.New("ERROR: not a valid EFS file: " + *inputPath))
+	}
+
+	// write tar file
 	outputFile, err := os.OpenFile(*outputPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0755)
 	if err != nil {
 		log.Fatal(err)
 	}
 	tw := tar.NewWriter(outputFile)
-
-	vh := sgi.NewVolumeHeader(b)
-	p := vh.Partitions[7]
-	fs := efs.NewFilesystem(file, p.Blocks, p.First)
-
 	fs.WalkFilesystem(buildTarCallback(tw, fs))
 	tw.Close()
 }
