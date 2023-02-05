@@ -16,13 +16,9 @@ efs2tar -in ~/my-sgi-disc.iso
 find iso_directory -name "*.iso" -print -exec efs2tar -in {} \;
 ```
 
-
-
-
 ## "Edge cases" not covered
 * any type of file other than directories and normal files (which is to say, links in particular do not work)
 * partition layouts other than what you'd expect to see on an SGI-produced CDROM
 * minimal error handling
 * does not verify magic numbers
 * preserving the original file permissions
-

@@ -43,8 +43,9 @@ func main() {
 		outputPath = &outFile
 	}
 
-	if _, err := os.Stat(*outputPath); !os.IsNotExist(err) {
-		log.Fatal(errors.New("ERROR: output file already exists: " + *outputPath))
+	if exists(*outputPath) {
+		os.Exit(0)
+		// log.Fatal(errors.New("OK: output file already exists: " + *outputPath))
 	}
 
 	// read efs file
@@ -67,7 +68,8 @@ func main() {
 		efsErrMsg := "invalid EFS file: " + *inputPath
 
 		// on Mac, try attaching input file anyway, and if successful, tar it up
-		if runtime.GOOS == "darwin" {
+		// TODO: needs more work, attach may succeed but the volume name is not the same
+		if false && runtime.GOOS == "darwin" {
 			log.Println("INFO:", errors.New(efsErrMsg))
 			log.Println("INFO: trying: hdiutil attach / tar cvf / hdiutil detach")
 
