@@ -6,30 +6,40 @@ import (
 	"flag"
 	"log"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/sgi-demos/efs2tar/efs"
 	"github.com/sgi-demos/efs2tar/sgi"
 )
 
+func exists(pathName string) bool {
+	_, err := os.Stat(pathName)
+	return !os.IsNotExist(err)
+}
+
 func main() {
 	// get efs and tar file names
 	inputPath := flag.String("in", "", "the file to be read as an efs filesystem")
 	outputPath := flag.String("out", "", "the file to written to as a tar file")
 	flag.Parse()
-	if len(*inputPath) == 0 && len(*outputPath) == 0 {
+	if len(*inputPath) == 0 {
 		log.Fatal(errors.New("ERROR: need at least an input filename"))
 	}
 
 	var outFile string
+	var rootName string
+
 	if len(*inputPath) > 0 && len(*outputPath) == 0 {
 		inFile := *inputPath
 		extPos := strings.LastIndex(inFile, ".")
 		if extPos > 0 {
-			outFile = inFile[:extPos] + ".tar"
+			rootName = inFile[:extPos]
 		} else {
-			outFile = inFile + ".tar"
+			rootName = inFile
 		}
+		outFile = rootName + ".tar"
 		outputPath = &outFile
 	}
 
@@ -42,7 +52,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	b := make([]byte, 51200)
 	_, err = file.Read(b)
 	if err != nil {
@@ -55,17 +64,42 @@ func main() {
 	fs := efs.NewFilesystem(file, p.Blocks, p.First)
 	rootNode := fs.RootInode()
 	if rootNode.Size == 0 {
-		log.Fatal(errors.New("ERROR: not a valid EFS file: " + *inputPath))
-	}
+		efsErrMsg := "invalid EFS file: " + *inputPath
 
-	// write tar file
-	outputFile, err := os.OpenFile(*outputPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0755)
-	if err != nil {
-		log.Fatal(err)
+		// on Mac, try attaching input file anyway, and if successful, tar it up
+		if runtime.GOOS == "darwin" {
+			log.Println("INFO:", errors.New(efsErrMsg))
+			log.Println("INFO: trying: hdiutil attach / tar cvf / hdiutil detach")
+
+			volName := "/Volumes/" + rootName
+			existsBefore := exists(volName)
+			if !existsBefore {
+				cmd := exec.Command("hdiutil", "attach", *inputPath)
+				cmd.Run()
+				if exists(volName) {
+					cmd = exec.Command("tar", "cvf", *outputPath, volName)
+					cmd.Run()
+					cmd = exec.Command("hdiutil", "detach", volName)
+					cmd.Run()
+					log.Fatal(errors.New("OK: valid non-EFS file: " + *inputPath))
+				}
+			}
+			log.Fatal(errors.New("ERROR: invalid non-EFS file, or already mounted"))
+		} else {
+			log.Fatal(errors.New("ERROR: " + efsErrMsg))
+		}
+	} else {
+		log.Fatal(errors.New("OK: valid EFS file: " + *inputPath))
+
+		// write tar file
+		outputFile, err := os.OpenFile(*outputPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0755)
+		if err != nil {
+			log.Fatal(err)
+		}
+		tw := tar.NewWriter(outputFile)
+		fs.WalkFilesystem(buildTarCallback(tw, fs))
+		tw.Close()
 	}
-	tw := tar.NewWriter(outputFile)
-	fs.WalkFilesystem(buildTarCallback(tw, fs))
-	tw.Close()
 }
 
 func buildTarCallback(tw *tar.Writer, fs *efs.Filesystem) func(efs.Inode, string) {
