@@ -57,7 +57,7 @@ func main() {
 		}
 
 		if exists(*outputPath) {
-			log.Fatal(errors.New("OK: tar exists: " + *outputPath))
+			log.Fatal(errors.New("WARNING: tar exists: " + *outputPath))
 		}
 	}
 
@@ -78,7 +78,7 @@ func main() {
 	fs := efs.NewFilesystem(file, p.Blocks, p.First)
 	rootNode := fs.RootInode()
 	if rootNode.Size == 0 {
-		log.Fatal(errors.New("ERROR: invalid EFS: " + *inputPath))
+		log.Fatal(errors.New("WARNING: invalid EFS: " + *inputPath))
 	} else {
 		if !checkEFSonly {
 			// write tar file
