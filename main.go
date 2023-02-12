@@ -1,3 +1,4 @@
+// EFS .iso, .img, .efs => .tar
 package main
 
 import (
@@ -6,8 +7,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/sgi-demos/efs2tar/efs"
@@ -23,29 +22,43 @@ func main() {
 	// get efs and tar file names
 	inputPath := flag.String("in", "", "the file to be read as an efs filesystem")
 	outputPath := flag.String("out", "", "the file to written to as a tar file")
+	checkPath := flag.String("check", "", "the file to be checked for an efs filesystem")
 	flag.Parse()
+
+	checkEFSonly := len(*inputPath) == 0 && len(*checkPath) > 0
+	if checkEFSonly {
+		inputPath = checkPath
+	}
+
+	// allow input path as the only arg without specifying -in
 	if len(*inputPath) == 0 {
-		log.Fatal(errors.New("ERROR: need at least an input filename"))
-	}
-
-	var outFile string
-	var rootName string
-
-	if len(*inputPath) > 0 && len(*outputPath) == 0 {
-		inFile := *inputPath
-		extPos := strings.LastIndex(inFile, ".")
-		if extPos > 0 {
-			rootName = inFile[:extPos]
+		args := os.Args
+		if len(*outputPath) == 0 && len(args) == 2 {
+			*inputPath = args[1]
 		} else {
-			rootName = inFile
+			log.Fatal(errors.New("ERROR: need input EFS"))
 		}
-		outFile = rootName + ".tar"
-		outputPath = &outFile
 	}
 
-	if exists(*outputPath) {
-		os.Exit(0)
-		// log.Fatal(errors.New("OK: output file already exists: " + *outputPath))
+	if !checkEFSonly {
+		// generate tar file name if not provided
+		var outFile string
+		var rootName string
+		if len(*inputPath) > 0 && len(*outputPath) == 0 {
+			inFile := *inputPath
+			extPos := strings.LastIndex(inFile, ".")
+			if extPos > 0 {
+				rootName = inFile[:extPos]
+			} else {
+				rootName = inFile
+			}
+			outFile = rootName + ".tar"
+			outputPath = &outFile
+		}
+
+		if exists(*outputPath) {
+			log.Fatal(errors.New("OK: tar exists: " + *outputPath))
+		}
 	}
 
 	// read efs file
@@ -65,42 +78,22 @@ func main() {
 	fs := efs.NewFilesystem(file, p.Blocks, p.First)
 	rootNode := fs.RootInode()
 	if rootNode.Size == 0 {
-		efsErrMsg := "invalid EFS file: " + *inputPath
-
-		// on Mac, try attaching input file anyway, and if successful, tar it up
-		// TODO: needs more work, attach may succeed but the volume name is not the same
-		if false && runtime.GOOS == "darwin" {
-			log.Println("INFO:", errors.New(efsErrMsg))
-			log.Println("INFO: trying: hdiutil attach / tar cvf / hdiutil detach")
-
-			volName := "/Volumes/" + rootName
-			existsBefore := exists(volName)
-			if !existsBefore {
-				cmd := exec.Command("hdiutil", "attach", *inputPath)
-				cmd.Run()
-				if exists(volName) {
-					cmd = exec.Command("tar", "cvf", *outputPath, volName)
-					cmd.Run()
-					cmd = exec.Command("hdiutil", "detach", volName)
-					cmd.Run()
-					log.Fatal(errors.New("OK: valid non-EFS file: " + *inputPath))
-				}
-			}
-			log.Fatal(errors.New("ERROR: invalid non-EFS file, or already mounted"))
-		} else {
-			log.Fatal(errors.New("ERROR: " + efsErrMsg))
-		}
+		log.Fatal(errors.New("ERROR: invalid EFS: " + *inputPath))
 	} else {
-		log.Fatal(errors.New("OK: valid EFS file: " + *inputPath))
-
-		// write tar file
-		outputFile, err := os.OpenFile(*outputPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0755)
-		if err != nil {
-			log.Fatal(err)
+		if !checkEFSonly {
+			// write tar file
+			outputFile, err := os.OpenFile(*outputPath, os.O_RDWR|os.O_TRUNC|os.O_CREATE, 0755)
+			if err != nil {
+				log.Fatal(err)
+			}
+			tw := tar.NewWriter(outputFile)
+			fs.WalkFilesystem(buildTarCallback(tw, fs))
+			tw.Close()
+			log.Fatal(errors.New("OK: valid EFS: " + *inputPath + "\nwrote tar: " + *outputPath))
+		} else {
+			// just check EFS
+			log.Fatal(errors.New("OK: valid EFS: " + *inputPath))
 		}
-		tw := tar.NewWriter(outputFile)
-		fs.WalkFilesystem(buildTarCallback(tw, fs))
-		tw.Close()
 	}
 }
 
